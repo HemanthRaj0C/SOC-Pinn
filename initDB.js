@@ -1,15 +1,16 @@
 const bcrypt = require('bcryptjs');
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, addDoc } = require('firebase/firestore');
+require('dotenv').config();
 
 const firebaseConfig = {
-  apiKey: "AIzaSyA01AdAXUKScvUjq5WNF6Yw6CugM1Q9GNY",
-  authDomain: "sriram-soc.firebaseapp.com",
-  projectId: "sriram-soc",
-  storageBucket: "sriram-soc.firebasestorage.app",
-  messagingSenderId: "72428991090",
-  appId: "1:72428991090:web:e8aefe526dfa7dcad488eb",
-  measurementId: "G-L6HEMDYPN1"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
