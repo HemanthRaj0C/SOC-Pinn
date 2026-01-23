@@ -37,7 +37,7 @@ async function initializeDatabase() {
         password: password1,
         role: 'user',
         teamMembers: ['John Doe', 'Jane Smith'],
-        assignedPS: 1,
+        assignedPS: [1, 2],
         submissions: []
       },
       {
@@ -46,7 +46,7 @@ async function initializeDatabase() {
         password: password2,
         role: 'user',
         teamMembers: ['Mike Johnson', 'Sarah Williams'],
-        assignedPS: 2,
+        assignedPS: [2, 3],
         submissions: []
       },
       {
@@ -55,7 +55,7 @@ async function initializeDatabase() {
         password: password3,
         role: 'user',
         teamMembers: ['David Brown', 'Emily Davis'],
-        assignedPS: 1,
+        assignedPS: [1, 3],
         submissions: []
       },
       {
@@ -64,7 +64,7 @@ async function initializeDatabase() {
         password: adminPass,
         role: 'admin',
         teamMembers: [],
-        assignedPS: 0,
+        assignedPS: [],
         submissions: []
       }
     ];

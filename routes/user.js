@@ -46,8 +46,20 @@ router.get('/ps/:number', async (req, res) => {
     
     const team = teamDoc.data();
     
-    if (team.assignedPS !== psNumber) {
+    if (!team.assignedPS.includes(psNumber)) {
       return res.status(403).json({ message: 'Not assigned to this problem statement' });
+    }
+
+    // Check if the PS has been started
+    const submission = team.submissions?.find(s => s.psNumber === psNumber);
+    
+    if (!submission || !submission.hasStarted) {
+      return res.status(403).json({ message: 'You must start this challenge from the dashboard first' });
+    }
+
+    // Check if the PS has already been completed
+    if (submission.isCompleted) {
+      return res.status(403).json({ message: 'You have already submitted this problem statement' });
     }
 
     // Get PS details
@@ -60,9 +72,6 @@ router.get('/ps/:number', async (req, res) => {
     }
 
     const ps = psSnapshot.docs[0].data();
-    
-    // Get submission status
-    const submission = team.submissions?.find(s => s.psNumber === psNumber);
 
     res.json({
       ...ps,
