@@ -1,0 +1,17 @@
+# Ignore node modules
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# Firebase credentials
+serviceAccountKey.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
