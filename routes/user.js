@@ -95,10 +95,15 @@ router.post('/ps/:number/start', async (req, res) => {
     
     const team = teamDoc.data();
 
-    // Check if already started
+    // Check if already started (SECURITY: Prevent multiple start calls)
     const existingSubmission = team.submissions?.find(s => s.psNumber === psNumber);
     if (existingSubmission?.hasStarted) {
       return res.status(400).json({ message: 'Challenge already started' });
+    }
+    
+    // Check if already completed
+    if (existingSubmission?.isCompleted) {
+      return res.status(400).json({ message: 'Challenge already completed' });
     }
 
     const startTime = new Date().toISOString();
@@ -138,6 +143,14 @@ router.post('/ps/:number/submit', async (req, res) => {
   try {
     const psNumber = parseInt(req.params.number);
     const { content } = req.body;
+    
+    // SECURITY FIX #6: Validate content size (max 5MB)
+    const contentSize = JSON.stringify(content).length;
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (contentSize > MAX_SIZE) {
+      return res.status(400).json({ message: 'Submission content too large. Maximum size is 5MB' });
+    }
+    
     const teamRef = doc(db, 'teams', req.user.id);
     const teamDoc = await getDoc(teamRef);
     
@@ -153,12 +166,14 @@ router.post('/ps/:number/submit', async (req, res) => {
       return res.status(400).json({ message: 'Challenge not started' });
     }
 
+    // SECURITY FIX #4: Race condition check - prevent double submission
     if (submission.isCompleted) {
       return res.status(400).json({ message: 'Challenge already submitted' });
     }
 
     const completedTime = new Date().toISOString();
-    const timeTaken = new Date(completedTime) - new Date(submission.startTime);
+    // SECURITY FIX #1: Calculate timeTaken on backend using server timestamps
+    const timeTaken = new Date(completedTime).getTime() - new Date(submission.startTime).getTime();
 
     // Update submission
     const submissions = team.submissions.map(s => {

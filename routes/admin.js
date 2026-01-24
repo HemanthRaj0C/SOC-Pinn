@@ -41,8 +41,9 @@ router.post('/score/:teamId/:psNumber', async (req, res) => {
     const { teamId, psNumber } = req.params;
     const { score } = req.body;
 
-    if (typeof score !== 'number' || score < 0) {
-      return res.status(400).json({ message: 'Invalid score' });
+    // SECURITY FIX #3: Validate score range (0-100)
+    if (typeof score !== 'number' || score < 0 || score > 100) {
+      return res.status(400).json({ message: 'Invalid score. Score must be between 0 and 100' });
     }
 
     const teamRef = doc(db, 'teams', teamId);
