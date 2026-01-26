@@ -9,65 +9,73 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(roleMiddleware('admin'));
 
-// Get all submissions for review
+// Get all teams with their submission progress
 router.get('/submissions', async (req, res) => {
   try {
     const teamsRef = collection(db, 'teams');
     const q = query(teamsRef, where('role', '==', 'user'));
     const teamsSnapshot = await getDocs(q);
     
-    const submissions = [];
+    const teams = [];
     teamsSnapshot.forEach(docSnap => {
       const team = docSnap.data();
-      submissions.push({
+      
+      // Format scores for admin view
+      const psProgress = {};
+      for (let psNum = 1; psNum <= 6; psNum++) {
+        const psScores = team.scores?.psScores?.[psNum];
+        psProgress[psNum] = {
+          totalScore: psScores?.totalScore || 0,
+          questions: {}
+        };
+        
+        for (let q = 0; q < 12; q++) {
+          const questionData = psScores?.questions?.[q];
+          psProgress[psNum].questions[q] = {
+            isCompleted: questionData?.isCompleted || false,
+            score: questionData?.score || 0,
+            attempts: questionData?.attempts || 0,
+            completedAt: questionData?.completedAt || null,
+            isFirstBlood: questionData?.isFirstBlood || false
+          };
+        }
+      }
+      
+      teams.push({
         teamId: docSnap.id,
         teamName: team.teamName,
         username: team.username,
         teamMembers: team.teamMembers,
-        assignedPS: team.assignedPS,
-        submissions: team.submissions || []
+        totalScore: team.scores?.totalScore || 0,
+        psProgress
       });
     });
 
-    res.json(submissions);
+    // Sort by total score descending
+    teams.sort((a, b) => b.totalScore - a.totalScore);
+
+    res.json(teams);
   } catch (error) {
+    console.error('Admin submissions error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Score a submission
-router.post('/score/:teamId/:psNumber', async (req, res) => {
+// Get first bloods
+router.get('/firstbloods', async (req, res) => {
   try {
-    const { teamId, psNumber } = req.params;
-    const { score } = req.body;
-
-    // SECURITY FIX #3: Validate score range (0-100)
-    if (typeof score !== 'number' || score < 0 || score > 100) {
-      return res.status(400).json({ message: 'Invalid score. Score must be between 0 and 100' });
-    }
-
-    const teamRef = doc(db, 'teams', teamId);
-    const teamDoc = await getDoc(teamRef);
+    const firstBloodsRef = collection(db, 'firstBloods');
+    const snapshot = await getDocs(firstBloodsRef);
     
-    if (!teamDoc.exists()) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-    
-    const team = teamDoc.data();
-    const submissions = team.submissions || [];
-    
-    // Find and update the submission
-    const updatedSubmissions = submissions.map(s => {
-      if (s.psNumber === parseInt(psNumber)) {
-        return { ...s, score, scoredAt: new Date().toISOString() };
-      }
-      return s;
+    const firstBloods = {};
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      firstBloods[data.psNumber] = data.questions;
     });
-
-    await updateDoc(teamRef, { submissions: updatedSubmissions });
-
-    res.json({ message: 'Score updated successfully', score });
+    
+    res.json(firstBloods);
   } catch (error) {
+    console.error('First bloods error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -83,19 +91,29 @@ router.get('/scoreboard', async (req, res) => {
     teamsSnapshot.forEach(docSnap => {
       const team = docSnap.data();
       
-      // Calculate total score
-      const totalScore = (team.submissions || []).reduce((sum, sub) => {
-        return sum + (sub.score || 0);
-      }, 0);
+      // Count completed questions and first bloods
+      let totalCompleted = 0;
+      let totalFirstBloods = 0;
+      
+      if (team.scores?.psScores) {
+        Object.values(team.scores.psScores).forEach(ps => {
+          if (ps.questions) {
+            Object.values(ps.questions).forEach(q => {
+              if (q.isCompleted) totalCompleted++;
+              if (q.isFirstBlood) totalFirstBloods++;
+            });
+          }
+        });
+      }
       
       scoreboard.push({
         teamId: docSnap.id,
         teamName: team.teamName,
         username: team.username,
         teamMembers: team.teamMembers,
-        assignedPS: team.assignedPS,
-        submissions: team.submissions || [],
-        totalScore
+        totalScore: team.scores?.totalScore || 0,
+        completedQuestions: totalCompleted,
+        firstBloods: totalFirstBloods
       });
     });
 
@@ -104,6 +122,24 @@ router.get('/scoreboard', async (req, res) => {
 
     res.json(scoreboard);
   } catch (error) {
+    console.error('Scoreboard error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get problem statements (for admin reference)
+router.get('/problemstatements', async (req, res) => {
+  try {
+    const psRef = collection(db, 'problemStatements');
+    const snapshot = await getDocs(psRef);
+    
+    const problemStatements = snapshot.docs
+      .map(doc => doc.data())
+      .sort((a, b) => a.psNumber - b.psNumber);
+    
+    res.json(problemStatements);
+  } catch (error) {
+    console.error('PS fetch error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

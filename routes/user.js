@@ -1,6 +1,6 @@
 const express = require('express');
 const { db } = require('../config/firebase');
-const { collection, doc, getDoc, updateDoc, query, where, getDocs } = require('firebase/firestore');
+const { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs } = require('firebase/firestore');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,7 +9,12 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(roleMiddleware('user'));
 
-// Get dashboard (assigned PS)
+// Scoring constants
+const FIRST_BLOOD_SCORE = 45;
+const STANDARD_SCORE = 30;
+const WRONG_ANSWER_PENALTY = -5;
+
+// Get dashboard - returns all 6 PS with team's progress
 router.get('/dashboard', async (req, res) => {
   try {
     const teamDocRef = doc(db, 'teams', req.user.id);
@@ -20,23 +25,61 @@ router.get('/dashboard', async (req, res) => {
     }
     
     const team = teamDoc.data();
+    
+    // Get all problem statements (just titles and numbers)
+    const psRef = collection(db, 'problemStatements');
+    const psSnapshot = await getDocs(psRef);
+    
+    const problemStatements = psSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        psNumber: data.psNumber,
+        title: data.title,
+        totalQuestions: data.questions?.length || 12
+      };
+    }).sort((a, b) => a.psNumber - b.psNumber);
+
+    // Calculate progress for each PS
+    const psProgress = problemStatements.map(ps => {
+      const psScore = team.scores?.psScores?.[ps.psNumber];
+      let completedQuestions = 0;
+      let psTotal = 0;
+      
+      if (psScore?.questions) {
+        Object.values(psScore.questions).forEach(q => {
+          if (q.isCompleted) completedQuestions++;
+          psTotal += q.score || 0;
+        });
+      }
+      
+      return {
+        ...ps,
+        completedQuestions,
+        score: psTotal
+      };
+    });
 
     res.json({
       teamName: team.teamName,
-      assignedPS: team.assignedPS,
-      submissions: team.submissions || []
+      totalScore: team.scores?.totalScore || 0,
+      problemStatements: psProgress
     });
   } catch (error) {
+    console.error('Dashboard error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Get specific problem statement
+// Get specific problem statement with all questions (without answers)
 router.get('/ps/:number', async (req, res) => {
   try {
     const psNumber = parseInt(req.params.number);
     
-    // Check if team is assigned this PS
+    if (psNumber < 1 || psNumber > 6) {
+      return res.status(400).json({ message: 'Invalid problem statement number' });
+    }
+
+    // Get team data for progress
     const teamDocRef = doc(db, 'teams', req.user.id);
     const teamDoc = await getDoc(teamDocRef);
     
@@ -45,49 +88,81 @@ router.get('/ps/:number', async (req, res) => {
     }
     
     const team = teamDoc.data();
-    
-    if (!team.assignedPS.includes(psNumber)) {
-      return res.status(403).json({ message: 'Not assigned to this problem statement' });
-    }
-
-    // Check if the PS has been started
-    const submission = team.submissions?.find(s => s.psNumber === psNumber);
-    
-    if (!submission || !submission.hasStarted) {
-      return res.status(403).json({ message: 'You must start this challenge from the dashboard first' });
-    }
-
-    // Check if the PS has already been completed
-    if (submission.isCompleted) {
-      return res.status(403).json({ message: 'You have already submitted this problem statement' });
-    }
+    const psScores = team.scores?.psScores?.[psNumber];
 
     // Get PS details
-    const psRef = collection(db, 'problemStatements');
-    const q = query(psRef, where('psNumber', '==', psNumber));
-    const psSnapshot = await getDocs(q);
+    const psDocRef = doc(db, 'problemStatements', `ps${psNumber}`);
+    const psDoc = await getDoc(psDocRef);
 
-    if (psSnapshot.empty) {
+    if (!psDoc.exists()) {
       return res.status(404).json({ message: 'Problem statement not found' });
     }
 
-    const ps = psSnapshot.docs[0].data();
+    const ps = psDoc.data();
+
+    // Remove answers from questions before sending
+    const questionsWithProgress = ps.questions.map((q, index) => {
+      const questionProgress = psScores?.questions?.[index] || {
+        isCompleted: false,
+        score: 0,
+        attempts: 0,
+        completedAt: null,
+        isFirstBlood: false
+      };
+
+      return {
+        index,
+        question: q.question,
+        hint: q.hint,
+        placeholder: q.placeholder,
+        isCompleted: questionProgress.isCompleted,
+        score: questionProgress.score,
+        attempts: questionProgress.attempts,
+        completedAt: questionProgress.completedAt,
+        isFirstBlood: questionProgress.isFirstBlood
+      };
+    });
 
     res.json({
-      ...ps,
-      submission: submission || null
+      psNumber: ps.psNumber,
+      title: ps.title,
+      description: ps.description,
+      questions: questionsWithProgress,
+      totalScore: psScores?.totalScore || 0
     });
   } catch (error) {
+    console.error('PS fetch error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Start challenge
-router.post('/ps/:number/start', async (req, res) => {
+// Check answer for a specific question
+router.post('/ps/:number/check/:questionIndex', async (req, res) => {
   try {
     const psNumber = parseInt(req.params.number);
-    const teamRef = doc(db, 'teams', req.user.id);
-    const teamDoc = await getDoc(teamRef);
+    const questionIndex = parseInt(req.params.questionIndex);
+    const { answer } = req.body;
+
+    if (psNumber < 1 || psNumber > 6) {
+      return res.status(400).json({ message: 'Invalid problem statement number' });
+    }
+
+    if (questionIndex < 0 || questionIndex > 11) {
+      return res.status(400).json({ message: 'Invalid question index' });
+    }
+
+    if (!answer || typeof answer !== 'string') {
+      return res.status(400).json({ message: 'Answer is required' });
+    }
+
+    // Limit answer length
+    if (answer.length > 1000) {
+      return res.status(400).json({ message: 'Answer too long' });
+    }
+
+    // Get team data
+    const teamDocRef = doc(db, 'teams', req.user.id);
+    const teamDoc = await getDoc(teamDocRef);
     
     if (!teamDoc.exists()) {
       return res.status(404).json({ message: 'Team not found' });
@@ -95,104 +170,157 @@ router.post('/ps/:number/start', async (req, res) => {
     
     const team = teamDoc.data();
 
-    // Check if already started (SECURITY: Prevent multiple start calls)
-    const existingSubmission = team.submissions?.find(s => s.psNumber === psNumber);
-    if (existingSubmission?.hasStarted) {
-      return res.status(400).json({ message: 'Challenge already started' });
-    }
-    
     // Check if already completed
-    if (existingSubmission?.isCompleted) {
-      return res.status(400).json({ message: 'Challenge already completed' });
+    const questionProgress = team.scores?.psScores?.[psNumber]?.questions?.[questionIndex];
+    if (questionProgress?.isCompleted) {
+      return res.status(400).json({ message: 'Question already completed' });
     }
 
-    const startTime = new Date().toISOString();
+    // Get the correct answer
+    const psDocRef = doc(db, 'problemStatements', `ps${psNumber}`);
+    const psDoc = await getDoc(psDocRef);
 
-    // Update submissions
-    const submissions = team.submissions || [];
-    const submissionIndex = submissions.findIndex(s => s.psNumber === psNumber);
+    if (!psDoc.exists()) {
+      return res.status(404).json({ message: 'Problem statement not found' });
+    }
 
-    if (submissionIndex >= 0) {
-      submissions[submissionIndex] = {
-        ...submissions[submissionIndex],
-        hasStarted: true,
-        startTime
+    const ps = psDoc.data();
+    const correctAnswer = ps.questions[questionIndex].answer;
+
+    // Case-insensitive comparison, trim whitespace
+    const isCorrect = answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+
+    // Initialize scores structure if needed
+    let scores = team.scores || {
+      totalScore: 0,
+      psScores: {}
+    };
+
+    if (!scores.psScores[psNumber]) {
+      scores.psScores[psNumber] = {
+        questions: {},
+        totalScore: 0
       };
-    } else {
-      submissions.push({
-        psNumber,
-        hasStarted: true,
-        startTime,
-        isCompleted: false,
-        completedTime: null,
-        timeTaken: null,
-        submissionContent: null
-      });
     }
 
-    await updateDoc(teamRef, { submissions });
+    if (!scores.psScores[psNumber].questions[questionIndex]) {
+      scores.psScores[psNumber].questions[questionIndex] = {
+        isCompleted: false,
+        score: 0,
+        attempts: 0,
+        completedAt: null,
+        isFirstBlood: false
+      };
+    }
 
-    res.json({ message: 'Challenge started', startTime });
+    const currentQuestion = scores.psScores[psNumber].questions[questionIndex];
+    currentQuestion.attempts += 1;
+
+    let scoreChange = 0;
+    let isFirstBlood = false;
+
+    if (isCorrect) {
+      // Check for first blood
+      const firstBloodRef = doc(db, 'firstBloods', `ps${psNumber}`);
+      const firstBloodDoc = await getDoc(firstBloodRef);
+      const firstBloodData = firstBloodDoc.data();
+
+      if (!firstBloodData?.questions?.[questionIndex]?.claimedBy) {
+        // First blood!
+        isFirstBlood = true;
+        scoreChange = FIRST_BLOOD_SCORE;
+
+        // Update first blood record
+        await updateDoc(firstBloodRef, {
+          [`questions.${questionIndex}`]: {
+            claimedBy: team.teamName,
+            claimedAt: new Date().toISOString()
+          }
+        });
+      } else {
+        // Standard score
+        scoreChange = STANDARD_SCORE;
+      }
+
+      currentQuestion.isCompleted = true;
+      currentQuestion.score = scoreChange;
+      currentQuestion.completedAt = new Date().toISOString();
+      currentQuestion.isFirstBlood = isFirstBlood;
+
+      // Update PS total score
+      scores.psScores[psNumber].totalScore += scoreChange;
+      
+      // Update overall total score
+      scores.totalScore += scoreChange;
+
+    } else {
+      // Wrong answer penalty
+      scoreChange = WRONG_ANSWER_PENALTY;
+      currentQuestion.score += scoreChange;
+      scores.psScores[psNumber].totalScore += scoreChange;
+      scores.totalScore += scoreChange;
+    }
+
+    // Save updated scores
+    await updateDoc(teamDocRef, { scores });
+
+    res.json({
+      isCorrect,
+      scoreChange,
+      isFirstBlood,
+      totalScore: scores.totalScore,
+      psScore: scores.psScores[psNumber].totalScore,
+      attempts: currentQuestion.attempts,
+      message: isCorrect 
+        ? (isFirstBlood ? '🩸 First Blood! +45 points!' : '✅ Correct! +30 points!') 
+        : `❌ Wrong answer. ${WRONG_ANSWER_PENALTY} points.`
+    });
+
   } catch (error) {
+    console.error('Answer check error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Submit challenge
-router.post('/ps/:number/submit', async (req, res) => {
+// Get leaderboard
+router.get('/leaderboard', async (req, res) => {
   try {
-    const psNumber = parseInt(req.params.number);
-    const { content } = req.body;
+    const teamsRef = collection(db, 'teams');
+    const teamsSnapshot = await getDocs(teamsRef);
     
-    // SECURITY FIX #6: Validate content size (max 5MB)
-    const contentSize = JSON.stringify(content).length;
-    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    if (contentSize > MAX_SIZE) {
-      return res.status(400).json({ message: 'Submission content too large. Maximum size is 5MB' });
-    }
-    
-    const teamRef = doc(db, 'teams', req.user.id);
-    const teamDoc = await getDoc(teamRef);
-    
-    if (!teamDoc.exists()) {
-      return res.status(404).json({ message: 'Team not found' });
-    }
-    
-    const team = teamDoc.data();
-
-    const submission = team.submissions?.find(s => s.psNumber === psNumber);
-
-    if (!submission?.hasStarted) {
-      return res.status(400).json({ message: 'Challenge not started' });
-    }
-
-    // SECURITY FIX #4: Race condition check - prevent double submission
-    if (submission.isCompleted) {
-      return res.status(400).json({ message: 'Challenge already submitted' });
-    }
-
-    const completedTime = new Date().toISOString();
-    // SECURITY FIX #1: Calculate timeTaken on backend using server timestamps
-    const timeTaken = new Date(completedTime).getTime() - new Date(submission.startTime).getTime();
-
-    // Update submission
-    const submissions = team.submissions.map(s => {
-      if (s.psNumber === psNumber) {
+    const leaderboard = teamsSnapshot.docs
+      .map(doc => {
+        const data = doc.data();
+        if (data.role === 'admin') return null;
+        
+        // Count completed questions
+        let totalCompleted = 0;
+        let totalFirstBloods = 0;
+        
+        if (data.scores?.psScores) {
+          Object.values(data.scores.psScores).forEach(ps => {
+            if (ps.questions) {
+              Object.values(ps.questions).forEach(q => {
+                if (q.isCompleted) totalCompleted++;
+                if (q.isFirstBlood) totalFirstBloods++;
+              });
+            }
+          });
+        }
+        
         return {
-          ...s,
-          isCompleted: true,
-          completedTime,
-          timeTaken,
-          submissionContent: content
+          teamName: data.teamName,
+          totalScore: data.scores?.totalScore || 0,
+          completedQuestions: totalCompleted,
+          firstBloods: totalFirstBloods
         };
-      }
-      return s;
-    });
+      })
+      .filter(t => t !== null)
+      .sort((a, b) => b.totalScore - a.totalScore);
 
-    await updateDoc(teamRef, { submissions });
-
-    res.json({ message: 'Challenge submitted successfully', timeTaken });
+    res.json(leaderboard);
   } catch (error) {
+    console.error('Leaderboard error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
