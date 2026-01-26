@@ -127,6 +127,81 @@ router.get('/scoreboard', async (req, res) => {
   }
 });
 
+// Get score timeline for chart
+router.get('/score-timeline', async (req, res) => {
+  try {
+    const teamsRef = collection(db, 'teams');
+    const q = query(teamsRef, where('role', '==', 'user'));
+    const teamsSnapshot = await getDocs(q);
+    
+    const teamsTimeline = [];
+    
+    teamsSnapshot.forEach(docSnap => {
+      const team = docSnap.data();
+      const scoreHistory = [];
+      
+      // Collect all score events with timestamps
+      if (team.scores?.psScores) {
+        Object.entries(team.scores.psScores).forEach(([psNum, ps]) => {
+          if (ps.questions) {
+            Object.entries(ps.questions).forEach(([qNum, q]) => {
+              if (q.isCompleted && q.completedAt) {
+                scoreHistory.push({
+                  timestamp: q.completedAt,
+                  score: q.score || 0,
+                  psNumber: parseInt(psNum),
+                  questionIndex: parseInt(qNum)
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Sort by timestamp
+      scoreHistory.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      // Calculate cumulative scores
+      let cumulativeScore = 0;
+      const timeline = scoreHistory.map(event => {
+        cumulativeScore += event.score;
+        return {
+          timestamp: event.timestamp,
+          score: cumulativeScore,
+          psNumber: event.psNumber,
+          questionIndex: event.questionIndex
+        };
+      });
+      
+      // Add starting point at 0
+      if (timeline.length > 0) {
+        timeline.unshift({
+          timestamp: new Date(new Date(timeline[0].timestamp).getTime() - 1000).toISOString(),
+          score: 0
+        });
+      }
+      
+      teamsTimeline.push({
+        teamId: docSnap.id,
+        teamName: team.teamName,
+        timeline
+      });
+    });
+    
+    // Sort teams by final score descending
+    teamsTimeline.sort((a, b) => {
+      const aFinal = a.timeline.length > 0 ? a.timeline[a.timeline.length - 1].score : 0;
+      const bFinal = b.timeline.length > 0 ? b.timeline[b.timeline.length - 1].score : 0;
+      return bFinal - aFinal;
+    });
+    
+    res.json(teamsTimeline);
+  } catch (error) {
+    console.error('Score timeline error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get problem statements (for admin reference)
 router.get('/problemstatements', async (req, res) => {
   try {
