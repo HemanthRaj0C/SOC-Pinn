@@ -272,8 +272,8 @@ router.post('/ps/:number/check/:questionIndex', async (req, res) => {
       psScore: scores.psScores[psNumber].totalScore,
       attempts: currentQuestion.attempts,
       message: isCorrect 
-        ? (isFirstBlood ? '🩸 First Blood! +45 points!' : '✅ Correct! +30 points!') 
-        : `❌ Wrong answer. ${WRONG_ANSWER_PENALTY} points.`
+        ? 'Solved!' 
+        : `Wrong answer`
     });
 
   } catch (error) {
