@@ -1,6 +1,6 @@
 const express = require('express');
 const { db } = require('../config/firebase');
-const { collection, doc, getDoc, updateDoc, query, where, getDocs } = require('firebase/firestore');
+const { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs } = require('firebase/firestore');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -215,6 +215,39 @@ router.get('/problemstatements', async (req, res) => {
     res.json(problemStatements);
   } catch (error) {
     console.error('PS fetch error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get settings
+router.get('/settings', async (req, res) => {
+  try {
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists()) {
+      // Return default settings if not exists
+      return res.json({ showResultsToUsers: false });
+    }
+    
+    res.json(settingsDoc.data());
+  } catch (error) {
+    console.error('Settings fetch error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Update settings
+router.put('/settings', async (req, res) => {
+  try {
+    const { showResultsToUsers } = req.body;
+    
+    const settingsRef = doc(db, 'settings', 'global');
+    await setDoc(settingsRef, { showResultsToUsers }, { merge: true });
+    
+    res.json({ message: 'Settings updated successfully', showResultsToUsers });
+  } catch (error) {
+    console.error('Settings update error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

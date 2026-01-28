@@ -325,4 +325,158 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
+// Get settings (for checking if results are visible)
+router.get('/settings', async (req, res) => {
+  try {
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists()) {
+      return res.json({ showResultsToUsers: false });
+    }
+    
+    res.json({ showResultsToUsers: settingsDoc.data().showResultsToUsers || false });
+  } catch (error) {
+    console.error('Settings fetch error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get scoreboard (only if enabled by admin)
+router.get('/scoreboard', async (req, res) => {
+  try {
+    // Check if results are visible to users
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists() || !settingsDoc.data().showResultsToUsers) {
+      return res.status(403).json({ message: 'Scoreboard is not available yet' });
+    }
+
+    const teamsRef = collection(db, 'teams');
+    const q = query(teamsRef, where('role', '==', 'user'));
+    const teamsSnapshot = await getDocs(q);
+    
+    const scoreboard = [];
+    teamsSnapshot.forEach(docSnap => {
+      const team = docSnap.data();
+      
+      // Count completed questions and first bloods
+      let totalCompleted = 0;
+      let totalFirstBloods = 0;
+      
+      if (team.scores?.psScores) {
+        Object.values(team.scores.psScores).forEach(ps => {
+          if (ps.questions) {
+            Object.values(ps.questions).forEach(q => {
+              if (q.isCompleted) totalCompleted++;
+              if (q.isFirstBlood) totalFirstBloods++;
+            });
+          }
+        });
+      }
+      
+      scoreboard.push({
+        teamId: docSnap.id,
+        teamName: team.teamName,
+        teamMembers: team.teamMembers,
+        totalScore: team.scores?.totalScore || 0,
+        completedQuestions: totalCompleted,
+        firstBloods: totalFirstBloods
+      });
+    });
+
+    // Sort by total score descending
+    scoreboard.sort((a, b) => b.totalScore - a.totalScore);
+
+    res.json(scoreboard);
+  } catch (error) {
+    console.error('User scoreboard error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get score timeline (only if enabled by admin)
+router.get('/score-timeline', async (req, res) => {
+  try {
+    // Check if results are visible to users
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists() || !settingsDoc.data().showResultsToUsers) {
+      return res.status(403).json({ message: 'Timeline is not available yet' });
+    }
+
+    const teamsRef = collection(db, 'teams');
+    const q = query(teamsRef, where('role', '==', 'user'));
+    const teamsSnapshot = await getDocs(q);
+    
+    const teamsTimeline = [];
+    
+    teamsSnapshot.forEach(docSnap => {
+      const team = docSnap.data();
+      const scoreHistory = [];
+      
+      // Collect all score events with timestamps
+      if (team.scores?.psScores) {
+        Object.entries(team.scores.psScores).forEach(([psNum, ps]) => {
+          if (ps.questions) {
+            Object.entries(ps.questions).forEach(([qNum, q]) => {
+              if (q.isCompleted && q.completedAt) {
+                scoreHistory.push({
+                  timestamp: q.completedAt,
+                  score: q.score || 0,
+                  psNumber: parseInt(psNum),
+                  questionIndex: parseInt(qNum)
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Sort by timestamp
+      scoreHistory.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      
+      // Calculate cumulative scores
+      let cumulativeScore = 0;
+      const timeline = scoreHistory.map(event => {
+        cumulativeScore += event.score;
+        return {
+          timestamp: event.timestamp,
+          score: cumulativeScore,
+          psNumber: event.psNumber,
+          questionIndex: event.questionIndex
+        };
+      });
+      
+      // Add starting point at 0
+      if (timeline.length > 0) {
+        timeline.unshift({
+          timestamp: new Date(new Date(timeline[0].timestamp).getTime() - 1000).toISOString(),
+          score: 0
+        });
+      }
+      
+      teamsTimeline.push({
+        teamId: docSnap.id,
+        teamName: team.teamName,
+        timeline
+      });
+    });
+    
+    // Sort teams by final score descending
+    teamsTimeline.sort((a, b) => {
+      const aFinal = a.timeline.length > 0 ? a.timeline[a.timeline.length - 1].score : 0;
+      const bFinal = b.timeline.length > 0 ? b.timeline[b.timeline.length - 1].score : 0;
+      return bFinal - aFinal;
+    });
+    
+    res.json(teamsTimeline);
+  } catch (error) {
+    console.error('User timeline error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;
