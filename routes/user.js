@@ -79,6 +79,14 @@ router.get('/ps/:number', async (req, res) => {
       return res.status(400).json({ message: 'Invalid problem statement number' });
     }
 
+    // Check if PS access is allowed
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists() || !settingsDoc.data().allowPSAccess) {
+      return res.status(403).json({ message: 'Challenge has not started yet. Please wait for admin to begin the event.' });
+    }
+
     // Get team data for progress
     const teamDocRef = doc(db, 'teams', req.user.id);
     const teamDoc = await getDoc(teamDocRef);
@@ -149,6 +157,14 @@ router.post('/ps/:number/check/:questionIndex', async (req, res) => {
 
     if (questionIndex < 0 || questionIndex > 11) {
       return res.status(400).json({ message: 'Invalid question index' });
+    }
+
+    // Check if PS access is allowed
+    const settingsRef = doc(db, 'settings', 'global');
+    const settingsDoc = await getDoc(settingsRef);
+    
+    if (!settingsDoc.exists() || !settingsDoc.data().allowPSAccess) {
+      return res.status(403).json({ message: 'Challenge has not started yet. Please wait for admin to begin the event.' });
     }
 
     if (!answer || typeof answer !== 'string') {
@@ -332,10 +348,14 @@ router.get('/settings', async (req, res) => {
     const settingsDoc = await getDoc(settingsRef);
     
     if (!settingsDoc.exists()) {
-      return res.json({ showResultsToUsers: false });
+      return res.json({ showResultsToUsers: false, allowPSAccess: false });
     }
     
-    res.json({ showResultsToUsers: settingsDoc.data().showResultsToUsers || false });
+    const data = settingsDoc.data();
+    res.json({ 
+      showResultsToUsers: data.showResultsToUsers || false,
+      allowPSAccess: data.allowPSAccess || false
+    });
   } catch (error) {
     console.error('Settings fetch error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -350,7 +370,7 @@ router.get('/scoreboard', async (req, res) => {
     const settingsDoc = await getDoc(settingsRef);
     
     if (!settingsDoc.exists() || !settingsDoc.data().showResultsToUsers) {
-      return res.status(403).json({ message: 'Scoreboard is not available yet' });
+      return res.status(403).json({ message: 'Scoreboard is not available yet. Please wait for admin to enable it.' });
     }
 
     const teamsRef = collection(db, 'teams');
@@ -404,7 +424,7 @@ router.get('/score-timeline', async (req, res) => {
     const settingsDoc = await getDoc(settingsRef);
     
     if (!settingsDoc.exists() || !settingsDoc.data().showResultsToUsers) {
-      return res.status(403).json({ message: 'Timeline is not available yet' });
+      return res.status(403).json({ message: 'Timeline is not available yet. Please wait for admin to enable it.' });
     }
 
     const teamsRef = collection(db, 'teams');

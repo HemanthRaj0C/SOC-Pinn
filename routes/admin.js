@@ -227,10 +227,14 @@ router.get('/settings', async (req, res) => {
     
     if (!settingsDoc.exists()) {
       // Return default settings if not exists
-      return res.json({ showResultsToUsers: false });
+      return res.json({ showResultsToUsers: false, allowPSAccess: false });
     }
     
-    res.json(settingsDoc.data());
+    const data = settingsDoc.data();
+    res.json({
+      showResultsToUsers: data.showResultsToUsers || false,
+      allowPSAccess: data.allowPSAccess || false
+    });
   } catch (error) {
     console.error('Settings fetch error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -240,12 +244,21 @@ router.get('/settings', async (req, res) => {
 // Update settings
 router.put('/settings', async (req, res) => {
   try {
-    const { showResultsToUsers } = req.body;
+    const { showResultsToUsers, allowPSAccess } = req.body;
     
     const settingsRef = doc(db, 'settings', 'global');
-    await setDoc(settingsRef, { showResultsToUsers }, { merge: true });
+    const updateData = {};
     
-    res.json({ message: 'Settings updated successfully', showResultsToUsers });
+    if (showResultsToUsers !== undefined) {
+      updateData.showResultsToUsers = showResultsToUsers;
+    }
+    if (allowPSAccess !== undefined) {
+      updateData.allowPSAccess = allowPSAccess;
+    }
+    
+    await setDoc(settingsRef, updateData, { merge: true });
+    
+    res.json({ message: 'Settings updated successfully', ...updateData });
   } catch (error) {
     console.error('Settings update error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
