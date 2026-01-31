@@ -53,6 +53,8 @@ const problemStatements = [
   {
     psNumber: 1,
     title: "Network Traffic Analysis",
+    severity: "high",
+    link: "https://drive.google.com/file/d/example1",
     description: `You are a SOC analyst investigating suspicious network traffic captured from a corporate environment. The packet capture contains evidence of a potential data exfiltration attempt.
 
 Your task is to analyze the provided network logs and answer the following questions to piece together the attack timeline and identify the threat actor's methods.
@@ -73,7 +75,8 @@ Artifacts available:
         question: "What is the MAC address of the suspected compromised host?",
         answer: "00:1A:2B:3C:4D:5E",
         hint: "Look for ARP requests from 192.168.1.105",
-        placeholder: "Format: XX:XX:XX:XX:XX:XX"
+        placeholder: "Format: XX:XX:XX:XX:XX:XX",
+        isCaseInsensitive: true
       },
       {
         question: "How many DNS queries were made to suspicious domains in the capture?",
@@ -91,7 +94,8 @@ Artifacts available:
         question: "What is the SHA256 hash of the malicious payload downloaded?",
         answer: "a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd",
         hint: "Check HTTP GET requests for executable files",
-        placeholder: "64 character hex string"
+        placeholder: "64 character hex string",
+        isCaseInsensitive: true
       },
       {
         question: "What time (UTC) did the initial compromise occur?",
@@ -109,13 +113,15 @@ Artifacts available:
         question: "What was the User-Agent string used by the malware?",
         answer: "Mozilla/5.0 WinBot/3.1",
         hint: "Check HTTP headers for unusual User-Agent strings",
-        placeholder: "Enter the exact User-Agent"
+        placeholder: "Enter the exact User-Agent",
+        isCaseInsensitive: true
       },
       {
         question: "What protocol was tunneled inside DNS queries?",
         answer: "HTTP",
         hint: "Analyze the DNS TXT record responses",
-        placeholder: "Protocol name"
+        placeholder: "Protocol name",
+        isCaseInsensitive: true
       },
       {
         question: "How many internal hosts did the attacker scan?",
@@ -127,25 +133,30 @@ Artifacts available:
         question: "What is the domain used for data exfiltration?",
         answer: "exfil.malware-c2.com",
         hint: "Check DNS queries with high frequency",
-        placeholder: "Enter domain name"
+        placeholder: "Enter domain name",
+        isCaseInsensitive: true
       },
       {
         question: "What CVE was exploited for initial access?",
         answer: "CVE-2024-1234",
         hint: "Correlate the attack pattern with known vulnerabilities",
-        placeholder: "Format: CVE-XXXX-XXXX"
+        placeholder: "Format: CVE-XXXX-XXXX",
+        isCaseInsensitive: true
       },
       {
         question: "What is the attacker's MITRE ATT&CK technique ID for exfiltration?",
         answer: "T1048",
         hint: "Identify the exfiltration method used",
-        placeholder: "Format: TXXXX"
+        placeholder: "Format: TXXXX",
+        isCaseInsensitive: true
       }
     ]
   },
   {
     psNumber: 2,
     title: "Malware Analysis Challenge",
+    severity: "critical",
+    link: "https://drive.google.com/file/d/example2",
     description: `A suspicious executable was found on a user's workstation after they reported unusual system behavior. Your task is to perform static and dynamic analysis to understand the malware's capabilities.
 
 Incident Details:
@@ -165,13 +176,15 @@ Behavioral Indicators:
         question: "What is the MD5 hash of the malware sample?",
         answer: "d41d8cd98f00b204e9800998ecf8427e",
         hint: "Use a hashing tool on the executable",
-        placeholder: "32 character hex string"
+        placeholder: "32 character hex string",
+        isCaseInsensitive: true
       },
       {
         question: "What packer was used to obfuscate the executable?",
         answer: "UPX",
         hint: "Check PE headers for packer signatures",
-        placeholder: "Packer name"
+        placeholder: "Packer name",
+        isCaseInsensitive: true
       },
       {
         question: "How many API calls to CreateRemoteThread were found?",
@@ -195,7 +208,8 @@ Behavioral Indicators:
         question: "What encryption algorithm is used for C2 communication?",
         answer: "AES-256",
         hint: "Analyze the crypto-related imports",
-        placeholder: "Algorithm name"
+        placeholder: "Algorithm name",
+        isCaseInsensitive: true
       },
       {
         question: "What scheduled task name does the malware create?",
@@ -219,7 +233,8 @@ Behavioral Indicators:
         question: "What anti-analysis technique is implemented?",
         answer: "VM Detection",
         hint: "Look for checks against common sandbox artifacts",
-        placeholder: "Technique name"
+        placeholder: "Technique name",
+        isCaseInsensitive: true
       },
       {
         question: "What is the compile timestamp of the malware?",
@@ -231,13 +246,16 @@ Behavioral Indicators:
         question: "What malware family does this sample belong to?",
         answer: "Emotet",
         hint: "Compare behavioral indicators with known families",
-        placeholder: "Malware family name"
+        placeholder: "Malware family name",
+        isCaseInsensitive: true
       }
     ]
   },
   {
     psNumber: 3,
     title: "Log Analysis Investigation",
+    severity: "medium",
+    link: "https://drive.google.com/file/d/example3",
     description: `Critical servers have been experiencing authentication failures and suspicious login attempts. You need to analyze the consolidated logs to identify the attack pattern and affected accounts.
 
 Environment:
@@ -262,13 +280,15 @@ Alerts Triggered:
         question: "Which user account had the most failed login attempts?",
         answer: "admin.backup",
         hint: "Sort failed logins by target account",
-        placeholder: "Username"
+        placeholder: "Username",
+        isCaseInsensitive: true
       },
       {
         question: "What is the top attacking country based on GeoIP?",
         answer: "Russia",
         hint: "Perform GeoIP lookup on source IPs",
-        placeholder: "Country name"
+        placeholder: "Country name",
+        isCaseInsensitive: true
       },
       {
         question: "How many successful logins occurred from suspicious IPs?",
@@ -304,13 +324,15 @@ Alerts Triggered:
         question: "Which domain controller processed most failed authentications?",
         answer: "DC01",
         hint: "Aggregate events by source DC",
-        placeholder: "Server name"
+        placeholder: "Server name",
+        isCaseInsensitive: true
       },
       {
         question: "What user agent was used in the web-based attacks?",
         answer: "python-requests/2.28.0",
         hint: "Check Apache access logs",
-        placeholder: "User-Agent string"
+        placeholder: "User-Agent string",
+        isCaseInsensitive: true
       },
       {
         question: "How many unique passwords were attempted in the spray?",
@@ -322,13 +344,16 @@ Alerts Triggered:
         question: "What lateral movement technique was used post-compromise?",
         answer: "Pass-the-Hash",
         hint: "Check for Event ID 4624 with logon type 3",
-        placeholder: "Technique name"
+        placeholder: "Technique name",
+        isCaseInsensitive: true
       }
     ]
   },
   {
     psNumber: 4,
     title: "Phishing Email Analysis",
+    severity: "low",
+    link: "https://drive.google.com/file/d/example4",
     description: `The security team intercepted a phishing campaign targeting executives. You need to analyze the email headers, attachments, and infrastructure to understand the threat.
 
 Email Details:
@@ -347,7 +372,8 @@ Observed Indicators:
         question: "What is the actual sender email domain?",
         answer: "c0mpany-finance.com",
         hint: "Check the Return-Path and envelope sender",
-        placeholder: "Domain name"
+        placeholder: "Domain name",
+        isCaseInsensitive: true
       },
       {
         question: "What IP address sent the phishing email?",
@@ -359,31 +385,36 @@ Observed Indicators:
         question: "What is the reply-to email address?",
         answer: "secure-review@protonmail.com",
         hint: "Check the Reply-To header",
-        placeholder: "Email address"
+        placeholder: "Email address",
+        isCaseInsensitive: true
       },
       {
         question: "What VBA function triggers on document open?",
         answer: "Auto_Open",
         hint: "Extract and analyze the macro code",
-        placeholder: "Function name"
+        placeholder: "Function name",
+        isCaseInsensitive: true
       },
       {
         question: "What PowerShell flag is used to bypass execution policy?",
         answer: "-ExecutionPolicy Bypass",
         hint: "Decode the macro payload",
-        placeholder: "PowerShell parameter"
+        placeholder: "PowerShell parameter",
+        isCaseInsensitive: true
       },
       {
         question: "What is the payload download URL domain?",
         answer: "cdn-update.malicious-site.com",
         hint: "Analyze the decoded PowerShell command",
-        placeholder: "Domain name"
+        placeholder: "Domain name",
+        isCaseInsensitive: true
       },
       {
         question: "What registrar was used for the phishing domain?",
         answer: "NameCheap",
         hint: "Perform WHOIS lookup",
-        placeholder: "Registrar name"
+        placeholder: "Registrar name",
+        isCaseInsensitive: true
       },
       {
         question: "How many SPF failures were logged?",
@@ -395,7 +426,8 @@ Observed Indicators:
         question: "What encoding was used to obfuscate the macro?",
         answer: "Base64",
         hint: "Look at the strings in the macro code",
-        placeholder: "Encoding type"
+        placeholder: "Encoding type",
+        isCaseInsensitive: true
       },
       {
         question: "What is the DKIM result for the phishing email?",
@@ -413,13 +445,16 @@ Observed Indicators:
         question: "What threat actor group is associated with this TTP?",
         answer: "FIN7",
         hint: "Match techniques with known threat actors",
-        placeholder: "Threat actor name"
+        placeholder: "Threat actor name",
+        isCaseInsensitive: true
       }
     ]
   },
   {
     psNumber: 5,
     title: "Incident Response Scenario",
+    severity: "critical",
+    link: "https://drive.google.com/file/d/example5",
     description: `A ransomware attack has been detected on the corporate network. Multiple systems are showing signs of encryption and a ransom note has appeared. Your task is to investigate and contain the incident.
 
 Incident Timeline:
@@ -438,13 +473,15 @@ Affected Systems:
         question: "What ransomware family was used in the attack?",
         answer: "LockBit 3.0",
         hint: "Analyze the ransom note format and file extension",
-        placeholder: "Ransomware name"
+        placeholder: "Ransomware name",
+        isCaseInsensitive: true
       },
       {
         question: "What file extension was appended to encrypted files?",
         answer: ".lockbit",
         hint: "Check affected files on the file server",
-        placeholder: ".extension"
+        placeholder: ".extension",
+        isCaseInsensitive: true
       },
       {
         question: "What is the Bitcoin wallet address in the ransom note?",
@@ -456,19 +493,22 @@ Affected Systems:
         question: "What was the initial access vector?",
         answer: "RDP Brute Force",
         hint: "Check authentication logs before encryption",
-        placeholder: "Attack vector"
+        placeholder: "Attack vector",
+        isCaseInsensitive: true
       },
       {
         question: "Which user account was compromised for lateral movement?",
         answer: "svc_backup",
         hint: "Check service accounts with admin privileges",
-        placeholder: "Username"
+        placeholder: "Username",
+        isCaseInsensitive: true
       },
       {
         question: "What tool was used to disable antivirus?",
         answer: "GMER",
         hint: "Check for rootkit/AV killer tools",
-        placeholder: "Tool name"
+        placeholder: "Tool name",
+        isCaseInsensitive: true
       },
       {
         question: "How many GB of data was exfiltrated before encryption?",
@@ -480,13 +520,15 @@ Affected Systems:
         question: "What shadow copy deletion command was used?",
         answer: "vssadmin delete shadows /all /quiet",
         hint: "Check PowerShell and CMD history",
-        placeholder: "Full command"
+        placeholder: "Full command",
+        isCaseInsensitive: true
       },
       {
         question: "What is the Tor onion address for the leak site?",
         answer: "lockbit7z2og4yutm.onion",
         hint: "Found in the ransom note",
-        placeholder: ".onion address"
+        placeholder: ".onion address",
+        isCaseInsensitive: true
       },
       {
         question: "How many files were encrypted in total?",
@@ -498,7 +540,8 @@ Affected Systems:
         question: "What persistence mechanism was used?",
         answer: "Scheduled Task",
         hint: "Check startup items and scheduled tasks",
-        placeholder: "Mechanism type"
+        placeholder: "Mechanism type",
+        isCaseInsensitive: true
       },
       {
         question: "What was the demanded ransom amount in USD?",
@@ -511,6 +554,8 @@ Affected Systems:
   {
     psNumber: 6,
     title: "Cloud Security Investigation",
+    severity: "high",
+    link: "https://drive.google.com/file/d/example6",
     description: `Suspicious activity has been detected in the company's AWS environment. CloudTrail logs show unusual API calls and potential unauthorized access to sensitive S3 buckets.
 
 AWS Environment:
@@ -529,13 +574,15 @@ Alert Summary:
         question: "What IAM user was compromised initially?",
         answer: "dev-jenkins-ci",
         hint: "Check the source of the first suspicious API call",
-        placeholder: "IAM username"
+        placeholder: "IAM username",
+        isCaseInsensitive: true
       },
       {
         question: "What new IAM user was created by the attacker?",
         answer: "admin-backup-svc",
         hint: "Look for CreateUser API calls",
-        placeholder: "IAM username"
+        placeholder: "IAM username",
+        isCaseInsensitive: true
       },
       {
         question: "How many S3 buckets were accessed?",
@@ -547,7 +594,8 @@ Alert Summary:
         question: "What S3 bucket contained the most sensitive data accessed?",
         answer: "company-financial-reports-prod",
         hint: "Check for buckets with PII or financial data",
-        placeholder: "Bucket name"
+        placeholder: "Bucket name",
+        isCaseInsensitive: true
       },
       {
         question: "What source IP was used for the attack?",
@@ -559,7 +607,8 @@ Alert Summary:
         question: "What EC2 instance type was launched by the attacker?",
         answer: "c5.4xlarge",
         hint: "Check RunInstances API calls",
-        placeholder: "Instance type"
+        placeholder: "Instance type",
+        isCaseInsensitive: true
       },
       {
         question: "What region was the malicious EC2 instance launched in?",
@@ -571,7 +620,8 @@ Alert Summary:
         question: "What is the name of the malicious Lambda function?",
         answer: "data-sync-backup",
         hint: "Check CreateFunction API calls",
-        placeholder: "Function name"
+        placeholder: "Function name",
+        isCaseInsensitive: true
       },
       {
         question: "What security group rule was added?",
@@ -589,13 +639,15 @@ Alert Summary:
         question: "What access key ID was used in the attack?",
         answer: "AKIAIOSFODNN7EXAMPLE",
         hint: "Check userIdentity.accessKeyId",
-        placeholder: "Access Key ID"
+        placeholder: "Access Key ID",
+        isCaseInsensitive: true
       },
       {
         question: "What MITRE ATT&CK tactic best describes the attack goal?",
         answer: "Exfiltration",
         hint: "Consider the primary objective based on activities",
-        placeholder: "Tactic name"
+        placeholder: "Tactic name",
+        isCaseInsensitive: true
       }
     ]
   }

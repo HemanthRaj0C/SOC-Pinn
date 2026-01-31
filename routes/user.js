@@ -35,7 +35,8 @@ router.get('/dashboard', async (req, res) => {
       return {
         psNumber: data.psNumber,
         title: data.title,
-        totalQuestions: data.questions?.length || 12
+        totalQuestions: data.questions?.length || 12,
+        severity: data.severity || null
       };
     }).sort((a, b) => a.psNumber - b.psNumber);
 
@@ -135,6 +136,7 @@ router.get('/ps/:number', async (req, res) => {
       psNumber: ps.psNumber,
       title: ps.title,
       description: ps.description,
+      link: ps.link || null,
       questions: questionsWithProgress,
       totalScore: psScores?.totalScore || 0
     });
@@ -201,10 +203,17 @@ router.post('/ps/:number/check/:questionIndex', async (req, res) => {
     }
 
     const ps = psDoc.data();
-    const correctAnswer = ps.questions[questionIndex].answer;
+    const question = ps.questions[questionIndex];
+    const correctAnswer = question.answer;
 
-    // Case-insensitive comparison, trim whitespace
-    const isCorrect = answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+    // Case-sensitive by default, unless isCaseInsensitive is true
+    // Also trim whitespace from both
+    let isCorrect;
+    if (question.isCaseInsensitive) {
+      isCorrect = answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+    } else {
+      isCorrect = answer.trim() === correctAnswer.trim();
+    }
 
     // Initialize scores structure if needed
     let scores = team.scores || {
