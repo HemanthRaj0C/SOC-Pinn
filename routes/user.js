@@ -206,12 +206,15 @@ router.post('/ps/:number/check/:questionIndex', async (req, res) => {
     const question = ps.questions[questionIndex];
     const correctAnswer = question.answer;
 
-    // Case-sensitive by default, unless isCaseInsensitive is true
+    // Case-sensitive by default (isCaseSensitive: true means exact match required)
+    // If isCaseSensitive is explicitly false, do case-insensitive comparison
     // Also trim whitespace from both
     let isCorrect;
-    if (question.isCaseInsensitive) {
+    if (question.isCaseSensitive === false) {
+      // Only do case-insensitive if explicitly set to false
       isCorrect = answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
     } else {
+      // Default: case-sensitive comparison
       isCorrect = answer.trim() === correctAnswer.trim();
     }
 
