@@ -2,6 +2,7 @@ const express = require('express');
 const { db } = require('../config/firebase');
 const { collection, doc, getDoc, setDoc, updateDoc, query, where, getDocs } = require('firebase/firestore');
 const { authMiddleware, roleMiddleware } = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
@@ -204,19 +205,17 @@ router.post('/ps/:number/check/:questionIndex', async (req, res) => {
 
     const ps = psDoc.data();
     const question = ps.questions[questionIndex];
-    const correctAnswer = question.answer;
+    const hashedAnswer = question.answer; // This is now a bcrypt hash
 
-    // Case-sensitive by default (isCaseSensitive: true means exact match required)
-    // If isCaseSensitive is explicitly false, do case-insensitive comparison
-    // Also trim whitespace from both
-    let isCorrect;
+    // Normalize the user's answer for comparison
+    // If case insensitive, lowercase before comparing (matches how we hashed it)
+    let userAnswer = answer.trim();
     if (question.isCaseSensitive === false) {
-      // Only do case-insensitive if explicitly set to false
-      isCorrect = answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
-    } else {
-      // Default: case-sensitive comparison
-      isCorrect = answer.trim() === correctAnswer.trim();
+      userAnswer = userAnswer.toLowerCase();
     }
+
+    // Compare user answer with hashed answer using bcrypt
+    const isCorrect = await bcrypt.compare(userAnswer, hashedAnswer);
 
     // Initialize scores structure if needed
     let scores = team.scores || {

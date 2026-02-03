@@ -36,11 +36,29 @@ async function pushProblemStatements(problemStatements) {
   }
   console.log(`   Deleted ${fbSnapshot.docs.length} existing first blood records`);
 
-  // Seed problem statements
-  console.log('\n📝 Pushing problem statements...');
+  // Seed problem statements with HASHED answers
+  console.log('\n📝 Pushing problem statements (hashing answers)...');
   for (const ps of problemStatements) {
-    await setDoc(doc(db, 'problemStatements', `ps${ps.psNumber}`), ps);
-    console.log(`   ✅ PS ${ps.psNumber}: ${ps.title} (${ps.severity})`);
+    // Hash all answers before pushing to Firestore
+    const psWithHashedAnswers = {
+      ...ps,
+      questions: await Promise.all(ps.questions.map(async (q) => {
+        // Normalize answer for consistent hashing
+        let answerToHash = q.answer.trim();
+        // If case insensitive, lowercase before hashing
+        if (q.isCaseSensitive === false) {
+          answerToHash = answerToHash.toLowerCase();
+        }
+        const hashedAnswer = await bcrypt.hash(answerToHash, 10);
+        return {
+          ...q,
+          answer: hashedAnswer // Store hashed answer
+        };
+      }))
+    };
+    
+    await setDoc(doc(db, 'problemStatements', `ps${ps.psNumber}`), psWithHashedAnswers);
+    console.log(`   ✅ PS ${ps.psNumber}: ${ps.title} (${ps.severity}) - answers hashed 🔐`);
   }
 
   // Initialize first bloods for each PS and question
